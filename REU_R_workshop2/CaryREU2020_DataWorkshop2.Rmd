@@ -1,0 +1,250 @@
+---
+title: 'Cary REU 2020 Data Workshop 2: Data Retrieval and Exploration'
+output:
+  html_document:
+    df_print: paged
+---
+Author: Megan Fork;
+Date: 21 May 2020
+Last updated: 26 May 2020 by MLF
+
+This R Notebook combines text that introduces and describes the concepts with "chunks" of R code that you can use to illustrate the concepts and manipulate to practice on your own. The document covers some ways you can load data into R and how to do some basic exploration and manipulation of those data. Specifically, there are four sections: 
+
+
+ 1. Loading .txt, .csv, and .xls(x) data into R (with information about projects, working directories, and paths)
+ 2. A brief introduction to exploring your dataset and manipulating/filtering with dplyr.
+ 3. Sources of publicly available data 
+ 4. Practice with your own data
+ 
+ 
+We'll also do a little bit of exploring the structure and organization of datasets (objects, classes, & types) and introduce the concept of tidydata. 
+
+I encourage you to add your own notes to this document as we move through the workshop. I hope this notebook will be a useful reference for you. Note that this document will not cover all the possibilities for ways you can perform these tasks: R is complex system of users, developers, and software that changes rapidly. An online search can often get you the answers you need. There are loads of useful resources, including: 
+
+* Stack Overflow (https://stackoverflow.com/questions/tagged/r)
+* R package cheatsheets (https://rstudio.com/resources/cheatsheets/)
+* R-bloggers (https://www.r-bloggers.com/)
+* Quick-R (https://www.statmethods.net/)
+
+
+DATA CREDITS
+Data modified from: https://github.com/EmadFawaz/WeRateDogs/blob/master/twitter_archive_master.csv
+
+
+## Part 1. Loading .txt, .csv, and .xls(x) data into R
+
+There are a few different ways to load your data into R: 
+
+* Using the "Import Dataset" button in the RStudio GUI 
+1. If .csv or .txt, use the "From Text (base)" option; if .xls(x), use the "From Excel" option
+2. Read through the options and choose the ones that represent your data file. 
+3. Follow along with Megan's screen share to load "Dogs.csv" through the RStudio GUI
+
+Now execute the following code to clear your environment so that we can try another way to import the data:
+```{r}
+rm(list = ls()) # Remove all objects from the R environment in "ls()"
+
+# Remember to write lots of comments! Future you will be grateful!
+```
+
+
+* Directly coding a function like "read.csv()", "read.table()", "read_excel()", etc.
+1. We'll use "read.csv()" since we have a .csv file here, but most of these work similarly. If you look in your R console, you'll notice that when you used the RStudio GUI to load data, it called this function automatically.
+```{r}
+DogData <- read.csv("C:/Users/Megan/Google Drive (forkm@caryinstitute.org)/REU_R_workshop2/Dogs.csv", stringsAsFactors=FALSE) # Give a name to the object you want this dataset to be called on the left of the arrow, then assign the data to that object name using the "read.csv()" function. The first argument gives the path to the file so R knows where to find it and the second argument tells R whether strings (i.e., stuff that is inside of quotation marks) should be assigned to the class "factor" or not. Notice that, by default, the first row has become the column names:
+colnames(DogData)
+```
+
+
+```{r}
+# Explore classes of columns:
+typeof(DogData$text)
+typeof(DogData$rating_numerator)
+typeof(DogData$date_time)
+```
+
+Try repeating the data import, but set "stringsAsFactors" to TRUE. What is different?
+
+
+
+2. You can also set your working directory to the folder where you've saved your data to make it a bit easier to import your data
+```{r}
+getwd() # Ask what your current working directory is set to
+
+setwd("C:/Users/Megan/Google Drive (forkm@caryinstitute.org)/REU_R_workshop2/")
+
+DogData <- read.csv("Dogs.csv", stringsAsFactors=FALSE, na.strings = "") # NOTE that this will OVERWRITE the existing object named "DogData"; the argument 'na.strings = ""' tells R that blank cells should be treated as missing values
+```
+
+
+Note/remember that you can get more information about any function by querying its help file in the console:
+```{r}
+?read.csv # Query help for the "read.csv()" function
+?read_excel # Query help for the "read_excel()" function
+```
+
+Further information on data import: 
+* https://www.datacamp.com/community/tutorials/r-data-import-tutorial
+* https://www.r-bloggers.com/importing-data-to-r/
+
+
+## Part 2. Exploring the structure and organization of datasets
+
+In general, it will be easiest to work with your data if it is in "tidy" format. This means that each column represents a single variable, each row represents a single observation, and each cell is a unique observation (more information on tidydata and why we all should love it: https://r4ds.had.co.nz/tidy-data.html). *Is the _We Rate Dogs_ data "tidy"? Why or why not?*
+
+Even when environmental data are in "tidy" format, there are often still difficulties to deal with. One of these is missing values. When you have a metadata file, it should give you information about how missing data are encoded (e.g., "NA", <blank>, "-9999", etc.). Let's do some data cleaning and exploration with the _We Rate Dogs_ data.
+```{r}
+# First, we'll load a couple of useful packages:
+install.packages("tidyverse") # the tidyverse includes a number of different R packages, including 'dplyr' a great package for manipulating, cleaning, and summarizing data. I use the cheat sheet (https://rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) ALL THE TIME
+library(tidyverse) # load the libraries for this package so that you can use it in this session
+
+# How many observations do we have?
+nrow(DogData) # returns the number of rows in a data frame or matrix
+
+# How many observations are missing the Dog's name?
+is.na(DogData$name) %>% # the function 'is.na()' returns a vector of logical (i.e., True/False) for each entry in the input that tells you whether the value is NA or not. The pipe operator (" %>% ") lets us feed this output into another function:
+        which() %>% # Feeding the above into "which()" returns the positions of the "NA" observations
+        length() # Length returns the number of observations in the vector - i.e., how many cells have 'NA' in them
+```
+Now, use what you've learned figure out how many observations are missing the rating numerator.
+
+
+
+Let's check and munge (i.e., alter the raw data) the _We Rate Dogs_ data, based on our expertise in the subject. For example, we know that "they're good dogs [Brent]", so we expect that the numerator of the rating should usually be >10 (certainly, rating numerators less than 10 require a second look). Further, we expect that the denominator of rating should always be equal to 10. 
+```{r}
+# Let's start by looking at the denominator. We expect that all the denominators should be 10 - let's check if that's true:
+unique(DogData$rating_denominator) # "Unique()" looks through the input you give it and returns a vector that lists the unique values
+
+# So it looks like we have at least one rating with a denominator of 15 instead of the expected 10. Let's get a closer look:
+DogData[which(DogData$rating_denominator == 15), ] # here, we ask R to display the row(s) of the object "DogData" for which the value of "rating_denominator" = 15. Note that "which()" takes a logical argument as its input
+
+# We can see that there's only one row with a denominator of 15. If we look at the text of the source tweet, it seems like this rating is actually incorrectly parsed from a date rather than being a true rating of a good dog. Now comes our first mungeing operation: dropping this bad observation from the dataset. 
+DogData.munge <- DogData[-which(DogData$rating_denominator == 15), ] # IMPORTANTLY, we choose a different name for the munged data so that we preserve our raw data. We can use the same arguments for "which" to identify the erroneous row, and remove it from our new data frame using a minus
+# Let's double check our munged data frame:
+unique(DogData.munge$rating_denominator) # Now, only 10s are left in the demoninator.
+
+# Now, let's check out the numerators: 
+unique(DogData.munge$rating_numerator) # We see that there is at least one observation of each of 5, 6, and 7 out of 10. How can that be?! Let's investigate further.
+DogData.munge[which(DogData.munge$rating_numerator < 10), ] # We can also use "which()" to show us all the rows where the numerator is less than 10. Let's investigate these observations. 
+
+# If we look at the text, it seems that the rating of 5/10 is erroneous; it should be 13.5/10, but may have been parsed incorrectly. We can manually change it in our munged data frame:
+DogData.munge$rating_numerator[which(DogData.munge$rating_numerator == 5)] <- 13.5
+DogData.munge <- DogData.munge[-which(DogData$rating_numerator == 7), ] 
+```
+What do you think we should do with the observation where the rating numerator is 7? (I don't have a right or wrong answer - sometimes you have to use your best judgement and justify how you've cleaned your messy data.)
+
+
+
+Now, we have a munged data set that we can start to explore. For example, what are the mean, minimum, and maximum ratings for different classes of dogs?
+```{r}
+# Let's start by identifying which unique classes of dogs we have:
+unique(DogData.munge$dog_class) # We have four unique classes of dog
+
+# We can use some dplyr functions to extract some information about each of these classes:
+DogData.classSummary1 <- DogData.munge %>% # We'll create a new object with the summarized dog data by class. Remember, the pipe operator (" %>% ") lets us feed the output of one function into the next.
+        group_by(dog_class) %>%# We ask R to group our data according to the class of dog
+        dplyr::summarise(count = dplyr::n(), min.rating = min(rating_numerator), max.rating = max(rating_numerator), average.rating = mean(rating_numerator)) # then, we ask R to give us a summary of the data in each group that includes the number of observations, the minimum value for the rating, the maximum value of the rating, and the average value of the rating.
+```
+Use what you've learned to find out the mean, median, and standard deviation of the number of favorites for each class of dog.
+
+
+
+Let's say we want to omit dogs whose names we don't know from our analysis:
+```{r}
+DogData.named.classSummary <- filter(DogData.munge, !is.na(name)) %>% # Here, we can use the funtion "filter()" to take a subset of observations that meet a set of logical criteria, such as the name NOT being NA
+        group_by(dog_class) %>% # same as above, but using the filtered data
+        dplyr::summarise(count = dplyr::n(), min.rating = min(rating_numerator), max.rating = max(rating_numerator), average.rating = mean(rating_numerator)) # Ditto
+```
+We filtered out the dogs where the name was _NA_, so why do we still have _NA_ in our summary object?
+Use what you've learned to find the mean rating for all dogs that received more than 3000 retweets (HINT: you don't need the "group_by()" function)
+
+
+
+You may also want to explore the relationships among numerical variables in your data before you dive in to analyzing data. Pairs plots are a great way to investigate such relationships.
+```{r}
+dplyr::select(DogData.munge, rating_numerator, favorites, retweets) %>% # the function "select()" returns a subset of the columns in our data frame. Here, we are choosing to plot just the rating numerator, favorites, and retweets 
+        pairs()
+```
+These can take a bit of practice to read, but show relationships among pairs of variables in a nice, concise way.
+
+
+Finally, you may have time-stamped data and be interested in looking at patterns in your variables over time.
+```{r}
+install.packages("lubridate") # this package makes working with dates and times in R much easier!
+library(lubridate) # load the library so you can use the package in this session of R
+
+# Let's remind ourselves the class of our date_time for the tweets:
+typeof(DogData.munge$date_time)
+
+# Now, let's use a lubridate function to tell R that it should be treated as a datetime object instead. Still working in our munge data frame, we can use "mutate()" to convert the class of the date_time column and write over our object with a new version:
+DogData.munge <- mutate(DogData.munge, date_time = mdy_hm(date_time)) # there are different functions depending on how the datetime data are formatted. Here, the tweet timestamps are in the format "month/day/year hours:minutes" so we use the function that corresponds to that order. You can use the help to look up functions for other formats:
+?mdy_hm()
+
+# Let's check that the type has converted:
+typeof(DogData.munge$date_time)
+
+# Finally, we can examine patterns over time. Let's look at the number of retweets over time:
+plot(retweets~date_time, data = DogData.munge)
+```
+Plot the number of favorites over time. Do you notice any pattern?
+
+ 
+
+
+## Part 3. A very non-exhaustive list of sources of publicly available data
+There are many places you can find useful data to practice with, get background information for a system in which you're interested, or to add potentially useful information to your study. Above, we used data from the U.S. Geological Survey's National Water Information System (https://waterdata.usgs.gov/nwis). The other example above showed data from the U.S. Census. There are many other archives of publicly available datasets, including:
+
+* Data from the Baltimore Ecosystem Study (https://baltimoreecosystemstudy.org/bes-data-catalog/)
+* Hydrologic data from Hydroshare.org (https://www.hydroshare.org/)
+* Various types of environmental data from the Environmental Data Initiative (https://portal.edirepository.org/nis/home.jsp)
+* Data generated by the Long Term Ecological Research Network (https://portal.lternet.edu/nis/home.jsp)
+* Zenodo, a European open data repository across multiple topics (https://about.zenodo.org/)
+* The National Center for Ecological Analysis and Synthesis also maintains a list of data repositories (https://www.nceas.ucsb.edu/data-science/tools)
+* And here's another such list from Nature (https://www.nature.com/sdata/policies/repositories)
+
+
+## Part 4. Practice!
+
+* Using the _We Rate Dogs_ data, determine how many dogs have been classified as "golden_retriever", what their average rating is, and the SUM of all favorites they have received.
+
+* Upload one of your own datasets and use the above data exploration steps (part 2) as appropriate. What relationships do you see in the pairs plot? Do you see any interesting patterns over time? What is an appropriate variable to group by, and what summary functions are appropriate for the question you have?
+
+Explore with curiousity and scrutiny! Please feel free to ask questions of your peers or Megan (via email forkm@caryinstitute.org or via Slack).
+
+
+
+
+## Bonus content: Downloading data directly from the internet into R
+
+In some cases, and for some kinds of data, it may be easiest to download data directly from the internet into your R console. Here, we'll download and explore some data from the U.S. Geological Survey using the "dataRetrieval" package. A more comprehensive introduction to this package can be found at https://cran.r-project.org/web/packages/dataRetrieval/vignettes/dataRetrieval.html
+
+```{r}
+install.packages("dataRetrieval") # install the "dataRetrieval" package
+library(dataRetrieval) # load the library for the "dataRetrieval" package so you can use it in this session to download data from the USGS
+
+
+# First, we create a matrix of the site codes for different stream gages measuring the focal watersheds in the Baltimore Ecosystem Study. You can look up stations on a map at https://maps.waterdata.usgs.gov/mapper/index.html to get their station number
+USGS.site.nos <- data.frame(matrix(c(
+  "POBR","01583570",
+  "BARN","01583580",
+  "GFGB","01589197",
+  "GFVN","01589300",
+  "GFCP","01589352",
+  "DRKR","01589330",
+  "GFGL","01589180"),ncol=2,byrow=T))
+colnames(USGS.site.nos) <- c("siteName","siteNumber") # give the columns of this data frame descriptive names
+Q.start <- "2017-11-01" # Choose a date for the beginning of your record
+Q.end <- "2018-11-16" # Choose a date for the end of your record
+
+
+BESdailyflow <- readNWISdv(siteNumbers = USGS.site.nos$siteNumber,parameterCd = '00060',startDate = Q.start,endDate = Q.end) # here, we tell the function to look up and download the data from all of the site numbers in our USGS.site.nos data frame. You can also enter a single or a vector of site numbers into this function. The "parameterCd" argument requires you to know the "parameter code" for the variable(s) you want to download. "00060" is the parameter code for discharge (flow). You can look up parameter codes for other variables at https://help.waterdata.usgs.gov/codes-and-parameters/parameters
+colnames(BESdailyflow) <- c("agency_cd","site_no","Date","Q_cfs","qual_cd") # we can rename the columns of the newly downloaded data to suit us.
+BESdailyflow$Date <- ymd(BESdailyflow$Date)
+BESdailyflow$Q_Ls <- BESdailyflow$Q_cfs*28.3168 # the USGS mean daily flow in cubic feet per second (cfs), so let's add a new column that gives us liters per second
+
+```
+Use dplyr functions to find the mean daily flow over the time period you downloaded for each station. 
+Make a plot of flow over time for Gwynns Falls at Caroll Park (siteName = "GFCP")
+Use the mapper (follow the link in the comment above) to find the station number of a station near you. Download and plot the daily discharge at this station for the period from January 1, 2020 through April 30, 2020.
+
+For an example of downloading data into the R console using spatial data from the U.S. Census, check out: https://github.com/meganfork/WatershedPopulations/blob/master/BES_Population_per_watershed.Rmd
