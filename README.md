@@ -1,3 +1,5 @@
 # CaryREU2020_Rworkshops
 This repository contains R Markdown documents used in introductory R workshops used in the 2020 Cary REU program. Weekly workshops were 1 hour long and consisted of screen-share demonstration by the instructor while students worked through the file on their own and took notes, with frequent breaks for questions and discussion.
 Data used in these workshops are modified from that provided by Emad Fawaz (https://github.com/EmadFawaz) at https://github.com/EmadFawaz/WeRateDogs/blob/master/twitter_archive_master.csv, originally sourced from the tweets of the Twitter account @WeRateDogs.
+
+For workshop 1, students were instructed to work through the Data Carpentry Intro to R (https://datacarpentry.org/R-ecology-lesson/01-intro-to-r.html) on their own. Workshop 2 was taught by Megan Fork and Workshop 3 was co-taught by Megan Fork and Elsa Anderson.
