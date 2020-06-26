@@ -1,0 +1,389 @@
+---
+title: 'Cary REU 2020 Data Workshops 2 and 3: Data Retrieval and Exploration'
+output:
+  html_document:
+    df_print: paged
+---
+Authors: Megan Fork and Elsa Anderson
+Date: 21 May 2020
+Last updated: 2 Jun 2020 by MLF
+
+This R Notebook combines text that introduces and describes the concepts with "chunks" of R code that you can use to illustrate the concepts and manipulate to practice on your own. The document covers some ways you can load data into R and how to do some basic exploration and manipulation of those data. Specifically, there are four sections: 
+
+
+ 1. Loading .txt, .csv, and .xls(x) data into R (with information about projects, working directories, and paths)
+ 2. A brief introduction to exploring your dataset and manipulating/filtering with dplyr.
+ 3. Sources of publicly available data 
+ 4. Practice with your own data
+ 
+ 
+We'll also do a little bit of exploring the structure and organization of datasets (objects, classes, & types) and introduce the concept of tidydata. 
+
+
+The material for Workshop #2 goes up to line 140; Workshop #3 begins on line 141.
+
+I encourage you to add your own notes to this document as we move through the workshop. I hope this notebook will be a useful reference for you. Note that this document will not cover all the possibilities for ways you can perform these tasks: R is complex system of users, developers, and software that changes rapidly. An online search can often get you the answers you need. There are loads of useful resources, including: 
+
+* Stack Overflow (https://stackoverflow.com/questions/tagged/r)
+* R package cheatsheets (https://rstudio.com/resources/cheatsheets/)
+* R-bloggers (https://www.r-bloggers.com/)
+* Quick-R (https://www.statmethods.net/)
+
+
+DATA CREDITS
+Data modified from: https://github.com/EmadFawaz/WeRateDogs/blob/master/twitter_archive_master.csv
+
+
+## Part 1. Loading .txt, .csv, and .xls(x) data into R
+
+There are a few different ways to load your data into R: 
+
+* Using the "Import Dataset" button in the RStudio GUI 
+1. If .csv or .txt, use the "From Text (base)" option; if .xls(x), use the "From Excel" option
+2. Read through the options and choose the ones that represent your data file. 
+3. Follow along with Megan's screen share to load "Dogs.csv" through the RStudio GUI
+
+Now execute the following code to clear your environment so that we can try another way to import the data:
+```{r}
+rm(list = ls()) # Remove all objects from the R environment in "ls()"
+
+# Remember to write lots of comments! Future you will be grateful!
+```
+
+
+* Directly coding a function like "read.csv()", "read.table()", "read_excel()", etc.
+1. We'll use "read.csv()" since we have a .csv file here, but most of these work similarly. If you look in your R console, you'll notice that when you used the RStudio GUI to load data, it called this function automatically.
+```{r}
+DogData <- read.csv("C:/Users/Megan/Google Drive (forkm@caryinstitute.org)/CaryREU2020_Rworkshops/REU_R_workshop2/Dogs.csv", stringsAsFactors=FALSE) # Give a name to the object you want this dataset to be called on the left of the arrow, then assign the data to that object name using the "read.csv()" function. The first argument gives the path to the file so R knows where to find it and the second argument tells R whether strings (i.e., stuff that is inside of quotation marks) should be assigned to the class "factor" or not. Notice that, by default, the first row has become the column names:
+colnames(DogData)
+```
+
+
+```{r}
+# Explore classes of columns:
+typeof(Dogs$text)
+typeof(Dogs$rating_numerator)
+typeof(Dogs$date_time)
+```
+
+Try repeating the data import, but set "stringsAsFactors" to TRUE. What is different?
+
+
+
+2. You can also set your working directory to the folder where you've saved your data to make it a bit easier to import your data
+```{r}
+getwd() # Ask what your current working directory is set to
+
+setwd("C:/Users/Megan/Google Drive (forkm@caryinstitute.org)/REU_R_workshop2/")
+
+DogData <- read.csv("Dogs.csv", stringsAsFactors=FALSE, na.strings = "") # NOTE that this will OVERWRITE the existing object named "DogData"; the argument 'na.strings = ""' tells R that blank cells should be treated as missing values
+```
+
+
+Note/remember that you can get more information about any function by querying its help file in the console:
+```{r}
+?read.csv # Query help for the "read.csv()" function
+?read_excel # Query help for the "read_excel()" function
+```
+
+Further information on data import: 
+* https://www.datacamp.com/community/tutorials/r-data-import-tutorial
+* https://www.r-bloggers.com/importing-data-to-r/
+
+
+## Part 2. Exploring the structure and organization of datasets
+
+In general, it will be easiest to work with your data if it is in "tidy" format. This means that each column represents a single variable, each row represents a single observation, and each cell is a unique observation (more information on tidydata and why we all should love it: https://r4ds.had.co.nz/tidy-data.html). *Is the _We Rate Dogs_ data "tidy"? Why or why not?*
+
+Even when environmental data are in "tidy" format, there are often still difficulties to deal with. One of these is missing values. When you have a metadata file, it should give you information about how missing data are encoded (e.g., "NA", <blank>, "-9999", etc.). Let's do some data cleaning and exploration with the _We Rate Dogs_ data.
+```{r}
+# First, we'll load a couple of useful packages:
+install.packages("tidyverse") # the tidyverse includes a number of different R packages, including 'dplyr' a great package for manipulating, cleaning, and summarizing data. I use the cheat sheet (https://rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) ALL THE TIME
+library(tidyverse) # load the libraries for this package so that you can use it in this session
+
+# How many observations do we have?
+nrow(DogData) # returns the number of rows in a data frame or matrix
+
+# How many observations are missing the Dog's name?
+is.na(DogData$name) %>% # the function 'is.na()' returns a vector of logical (i.e., True/False) for each entry in the input that tells you whether the value is NA or not. The pipe operator (" %>% ") lets us feed this output into another function:
+        which() %>% # Feeding the above into "which()" returns the positions of the "NA" observations
+        length() # Length returns the number of observations in the vector - i.e., how many cells have 'NA' in them
+```
+Now, use what you've learned figure out how many observations are missing the rating numerator.
+
+
+
+Let's check and munge (i.e., alter the raw data) the _We Rate Dogs_ data, based on our expertise in the subject. For example, we know that "they're good dogs [Brent]", so we expect that the numerator of the rating should usually be >10 (certainly, rating numerators less than 10 require a second look). Further, we expect that the denominator of rating should always be equal to 10. 
+```{r}
+# Let's start by looking at the denominator. We expect that all the denominators should be 10 - let's check if that's true:
+unique(DogData$rating_denominator) # "Unique()" looks through the input you give it and returns a vector that lists the unique values
+
+# So it looks like we have at least one rating with a denominator of 15 instead of the expected 10. Let's get a closer look:
+DogData[which(DogData$rating_denominator == 15), ] # here, we ask R to display the row(s) of the object "DogData" for which the value of "rating_denominator" = 15. Note that "which()" takes a logical argument as its input
+
+# We can see that there's only one row with a denominator of 15. If we look at the text of the source tweet, it seems like this rating is actually incorrectly parsed from a date rather than being a true rating of a good dog. Now comes our first mungeing operation: dropping this bad observation from the dataset. 
+DogData.munge <- DogData[-which(DogData$rating_denominator == 15), ] # IMPORTANTLY, we choose a different name for the munged data so that we preserve our raw data. We can use the same arguments for "which" to identify the erroneous row, and remove it from our new data frame using a minus
+# Let's double check our munged data frame:
+unique(DogData.munge$rating_denominator) # Now, only 10s are left in the demoninator.
+
+# Now, let's check out the numerators: 
+unique(DogData.munge$rating_numerator) # We see that there is at least one observation of each of 5, 6, and 7 out of 10. How can that be?! Let's investigate further.
+DogData.munge[which(DogData.munge$rating_numerator < 10), ] # We can also use "which()" to show us all the rows where the numerator is less than 10. Let's investigate these observations. 
+
+# If we look at the text, it seems that the rating of 5/10 is erroneous; it should be 13.5/10, but may have been parsed incorrectly. We can manually change it in our munged data frame:
+DogData.munge$rating_numerator[which(DogData.munge$rating_numerator == 5)] <- 13.5
+DogData.munge <- DogData.munge[-which(DogData$rating_numerator == 7), ] 
+```
+What do you think we should do with the observation where the rating numerator is 7? (I don't have a right or wrong answer - sometimes you have to use your best judgement and justify how you've cleaned your messy data.)
+
+
+
+## Here is where we will start for Workshop 3!!!
+
+In the previous workshop, we learned how to import a data into R and do some basic cleaning operations. During this workshop, we'll learn explore the structure and relationships within and among the variables in our dataset.
+
+# Types and classes 
+Remember last week we did some manipulating in our code when reading in our .csv files to set the stringsasfactors=FALSE, which gave us some control over how R read in our data from our .csv file. When you import data, R makes some judgements about the structure of data based on the text or numbers in your file. These are not always correct, and it can save a lot of frustration in analysis to be able to identify the vector type you're dealing with.
+
+Generally speaking, there are two types of data: categorical and  numeric. Categorical data divides something into classes (e.g. sex). Numeric data can be discrete (e.g. counts) or continuous (e.g. measurements). These breakdowns can sometimes be interchangeable, and you may need to make conversions between the data types depending on your needs. 
+
+Here are some resources for learning more about data types and how R interprets them:
+https://www.statmethods.net/input/datatypes.html
+
+
+```{r}
+str(DogData.munge) #this will give you a list of all the variables in your dataframe, and outline the structure of each variable.
+
+```
+
+What are a few things that jump out at you? 
+
+What about the fact that Breed_probability1 and dog_class are listed as Characters?
+
+R will read these as factors, but we can recode if we want, just for practice.
+```{r}
+DogData.munge$dog_class<-as.factor(DogData.munge$dog_class) # This will change the way R reads this and will insert it directly in the the data frame
+is.factor(DogData.munge$dog_class) #quick double-check that it worked
+
+```
+
+
+# Summarizing numeric data: count, min, max, and mean
+Now, we have a munged data set that we can start to explore. For example, what are the mean, minimum, and maximum ratings for different classes of dogs?
+```{r}
+library(tidyverse) # load this library so that we can use pipes - you should have installed it last week.
+
+# Let's start by identifying which unique classes of dogs we have:
+unique(DogData.munge$dog_class) # We have four unique classes of dog
+
+# We can use some dplyr functions to extract some information about each of these classes:
+DogData.classSummary1 <- DogData.munge %>% # We'll create a new object with the summarized dog data by class. Remember, the pipe operator (" %>% ") lets us feed the output of one function into the next.
+        group_by(dog_class) %>% # We ask R to group our data according to the class of dog
+        dplyr::summarise(count = dplyr::n(), min.rating = min(rating_numerator), max.rating = max(rating_numerator), average.rating = mean(rating_numerator), avg.favorites = mean(favorites)) # then, we ask R to give us a summary of the data in each group that includes the number of observations, the minimum value for the rating, the maximum value of the rating, and the average value of the rating.
+```
+Use what you've learned to find out the mean, median, and standard deviation of the number of favorites for each class of dog.
+
+
+Let's say we want to omit dogs whose names we don't know from our analysis:
+```{r}
+DogData.named.classSummary <- filter(DogData.munge, !is.na(name)) %>% # Here, we can use the funtion "filter()" to take a subset of observations that meet a set of logical criteria, such as the name NOT being NA
+        group_by(dog_class) %>% # same as above, but using the filtered data
+        dplyr::summarise(count = dplyr::n(), min.rating = min(rating_numerator), max.rating = max(rating_numerator), average.rating = mean(rating_numerator)) # Ditto
+```
+We filtered out the dogs where the name was _NA_, so why do we still have _NA_ in our summary object?
+Use what you've learned to find the mean rating for all dogs that received more than 3000 retweets (HINT: you don't need the "group_by()" function)
+
+
+# Distributions of values of a variable: HISTOGRAMS
+Histograms are charts that show the distribution of different values within a dataset. The x-axis shows different values that the variable can take (or bins that represent a small range of the data for a continuous variable), and the y-axis shows the frequency that these values appear within your dataset. Bars of different height show the frequency for each value or bin. 
+
+For more information on histograms, check out: https://www.datacamp.com/community/tutorials/make-histogram-basic-r
+
+Let's look at how the rating numerator is distributed:
+```{r}
+hist(DogData.munge$retweets) # the default options for the function "hist()" gives us a histogram showing the bins of values on the x axis and the frequency (the count of values that fall in each bin from our data set; remember our cleaned data has a total of 498 observations)
+```
+
+We can also change some of the arguments from the default if we want to visualize our histogram differently. (Remember you can type "?hist" into your console to open the help file and get more information about the possible arguments for the function "hist()".) For example, we can change the number of bins the data are broken into or the cutoffs for the bins with the argument "breaks":
+```{r}
+hist(DogData.munge$rating_numerator, breaks = 5) # this tells R to give us 5 breaks, splitting the data into 6 bins
+
+# we can also specify the location of the breaks by giving a vector to the "breaks" argument that lists the edge of each bin:
+hist(DogData.munge$rating_numerator, breaks = c(6,8,10,12,14,16,18)) # Here, we've given a vector of evenly spaced breaks, but they can be unevenly spaced, too!
+```
+
+We can also change whether the y-axis shows the frequency of observations or the probability that a randomly-selected entry falls into a given bin (i.e. the proportion of the data in each bin) by setting the argument "freq" to true or false, respectively (default is true if bins are equally spaced).
+```{r}
+hist(DogData.munge$rating_numerator,freq = F)
+```
+
+There are also a number of arguments you can use to make your histogram look pretty. 
+```{r}
+hist(DogData.munge$rating_numerator, freq = F, border = "navy", col = "cornflowerblue", main = "Histogram of ratings by @WeRateDogs", xlab = "Ratings", ylab = "Probability density")
+```
+Explore these on your own!
+
+
+# Relationships between and among variables: Pairs plots and correlation tables 
+
+You may also want to explore the relationships among numerical variables in your data before you dive in to analyzing data. Pairs plots are a great way to investigate such relationships.
+```{r}
+dplyr::select(DogData.munge, rating_numerator, favorites, retweets) %>% # the function "select()" returns a subset of the columns in our data frame. Here, we are choosing to plot just the rating numerator, favorites, and retweets 
+        pairs()
+```
+These can take a bit of practice to read, but show relationships among pairs of variables in a nice, concise way.
+
+
+# Correlation tables
+Sometimes we need more information to decide to include or exclude variables from tests. Multicollinearity--when two predictor variables in a test are correlated with eachother--can result in dramatically over or under estimating the strength of a regression analysis. Knowing the strength of correlations between variables can be very helpful in preventing or accounting for these.
+
+
+```{r}
+install.packages("corrplot") #The corrplot package can give us some more information about the structure of these relationships
+library("corrplot")
+
+#checking for correlations between the same list of variables above (DogData.munge$rating_numerator, DogData.munge$favorites, DogData.munge$retweets)
+
+DogData.munge%>%dplyr::select(rating_numerator, favorites, retweets)%>% cor() -> cor.matrix #This is creating a matrix of correlation coefficeints (NOT P VALUES!!!)
+
+cor.matrix #will display our matrix
+
+#We can also visualize this differently, which can help in identifying important relationships.
+corrplot(cor.matrix, method="circle")
+corrplot(cor.matrix,method="color")
+```
+
+How would we interpret these results? Are favorites and retweets variables that we could use together without other adustments? Why or why not?
+
+
+# Time-series data: How to work with dates and time-stamps
+Finally, you may have time-stamped data and be interested in looking at patterns in your variables over time.
+```{r}
+install.packages("lubridate") # this package makes working with dates and times in R much easier!
+library(lubridate) # load the library so you can use the package in this session of R
+
+# Let's remind ourselves the class of our date_time for the tweets:
+typeof(DogData.munge$date_time)
+
+# Now, let's use a lubridate function to tell R that it should be treated as a datetime object instead. Still working in our munge data frame, we can use "mutate()" to convert the class of the date_time column and write over our object with a new version:
+DogData.munge <- mutate(DogData.munge, date_time = ymd_hm(date_time)) # there are different functions depending on how the datetime data are formatted. Here, the tweet timestamps are in the format "month/day/year hours:minutes" so we use the function that corresponds to that order. You can use the help to look up functions for other formats:
+?mdy_hm()
+
+# Let's check that the type has converted:
+typeof(DogData.munge$date_time)
+
+# Finally, we can examine patterns over time. Let's look at the number of retweets over time:
+plot(retweets~date_time, data = DogData.munge)
+```
+Plot the number of favorites over time. Do you notice any pattern?
+
+
+# Getting ready to analyze! Testing assumptions about the properties of data.
+ 
+ Different statistical tests are predicated on data meeting certain assumptions. It is important to know these assumptions and use tests or transformations appropriate to your data. 
+
+Given the huge variety of statistical tests, there are also a lot of ways to test assumptions. Here are a few common methods that are based on the assumptions for linear regressions. 
+
+Assumptions of linear regression: 
+1. Linearity: The relationship between X and the mean of Y is linear
+2. Homoscedasticity: The variance of the residual* is the same for any value of X 
+3. Independence: Observations are independent of eachother
+4. Normality: For any fitted value of X, Y is normally distributed
+
+*Residuals (otherwise known as error terms) are the difference between the observed Y values and the values of Y predicted by the regression equation
+
+Let's look at the hypothesis that retweets is a function of score. We might predict that higher scores result in more retweets, and we can write the model like this:
+
+```{r}
+lm(DogData.munge$retweets ~ DogData.munge$rating_numerator)
+```
+
+
+From this foundation, we need to test the above assumptions. 
+```{r}
+lm.out<-lm(DogData.munge$retweets~DogData.munge$rating_numerator)#running our linear model and assigning the output to the term lm.out
+
+par(mfrow=c(2,2)) #this tells R you'd like to see 4 plots at once, in 2 rows and 2 columns
+plot(lm.out) # This will generate 4 plots that allow us to assess the assumptions of homoskedascity 
+```
+
+ 
+ Let's look at these plots one at a time. The first graph shows us the fitted values (x axis) vs. the residuals (y axis). In order to meet the assumptions of linearity and homoskedasticity, the overall trend for this graph should be a straight line. Note that the data do not need to show a perfectly straight line because the assumption is that the relationship is a straight line for the POPULATION being sampled. Slight deviations from a straight line are likely due to sampling error.
+ 
+ Thes second graph is the Normal Quantile-Quantile (Q-Q) plot, which shows us the standardized residuals plotted agains the quantiles of a normal distribution. If the standardizarded residuals, fall allong a fairly straight line, then the residuals are normally distributed, if they deviate from the straight line, they somehow deviate from this assumption.
+ 
+Looking at our data, what do you think? Are these residuals normally distributed? If not, where do you think we're seeing differences? (Hint: think about the normal "bell curve" shape)
+
+The third graph is the Scale-Locaiton graph, which shows the square root of the absolute value of the standardized residuals vs. the fitted values. If the data have equal variance, there should be no obvious trends in this data (approaching a straight line). R also does us a solid and labels points that are likely outliers. Which points are these? Use what you know to identify the values for these entries.
+
+
+The final graph is the Residuals vs. Leverage plot, which shows us the pattern of the standardized residuals as a function of leverage. This is another indiciation of which points might have an undue influence on the slope of the relationship (outliers).
+
+Given these graphs, do you feel comfortable with a linear model of this full data set? Why or why not?
+
+What are your options if you don't meet these assumptions?
+
+Remove outliers: Weight the pros and cons of having one or two entries that change the relationship
+Find a different test: non-parametric tests have less rigorous assumptions but less statistical power
+Transform data: can help meet assumptions, but makes interpretation difficult
+
+
+
+
+## Part 3. A very non-exhaustive list of sources of publicly available data
+There are many places you can find useful data to practice with, get background information for a system in which you're interested, or to add potentially useful information to your study. Above, we used data from the U.S. Geological Survey's National Water Information System (https://waterdata.usgs.gov/nwis). The other example above showed data from the U.S. Census. There are many other archives of publicly available datasets, including:
+
+* Data from the Baltimore Ecosystem Study (https://baltimoreecosystemstudy.org/bes-data-catalog/)
+* Hydrologic data from Hydroshare.org (https://www.hydroshare.org/)
+* Various types of environmental data from the Environmental Data Initiative (https://portal.edirepository.org/nis/home.jsp)
+* Data generated by the Long Term Ecological Research Network (https://portal.lternet.edu/nis/home.jsp)
+* Zenodo, a European open data repository across multiple topics (https://about.zenodo.org/)
+* The National Center for Ecological Analysis and Synthesis also maintains a list of data repositories (https://www.nceas.ucsb.edu/data-science/tools)
+* And here's another such list from Nature (https://www.nature.com/sdata/policies/repositories)
+
+
+## Part 4. Practice!
+
+* Using the _We Rate Dogs_ data, determine how many dogs have been classified as "golden_retriever", what their average rating is, and the SUM of all favorites they have received.
+
+* Upload one of your own datasets and use the above data exploration steps (part 2) as appropriate. What relationships do you see in the pairs plot? Do you see any interesting patterns over time? What is an appropriate variable to group by, and what summary functions are appropriate for the question you have?
+
+Explore with curiousity and scrutiny! Please feel free to ask questions of your peers, Megan (via email forkm@caryinstitute.org or via Slack) or Elsa (email andersone@caryinstitute.org).
+
+
+
+
+## Bonus content: Downloading data directly from the internet into R
+
+In some cases, and for some kinds of data, it may be easiest to download data directly from the internet into your R console. Here, we'll download and explore some data from the U.S. Geological Survey using the "dataRetrieval" package. A more comprehensive introduction to this package can be found at https://cran.r-project.org/web/packages/dataRetrieval/vignettes/dataRetrieval.html
+
+```{r}
+install.packages("dataRetrieval") # install the "dataRetrieval" package
+library(dataRetrieval) # load the library for the "dataRetrieval" package so you can use it in this session to download data from the USGS
+
+
+# First, we create a matrix of the site codes for different stream gages measuring the focal watersheds in the Baltimore Ecosystem Study. You can look up stations on a map at https://maps.waterdata.usgs.gov/mapper/index.html to get their station number
+USGS.site.nos <- data.frame(matrix(c(
+  "POBR","01583570",
+  "BARN","01583580",
+  "GFGB","01589197",
+  "GFVN","01589300",
+  "GFCP","01589352",
+  "DRKR","01589330",
+  "GFGL","01589180"),ncol=2,byrow=T))
+colnames(USGS.site.nos) <- c("siteName","siteNumber") # give the columns of this data frame descriptive names
+Q.start <- "2017-11-01" # Choose a date for the beginning of your record
+Q.end <- "2018-11-16" # Choose a date for the end of your record
+
+
+BESdailyflow <- readNWISdv(siteNumbers = USGS.site.nos$siteNumber,parameterCd = '00060',startDate = Q.start,endDate = Q.end) # here, we tell the function to look up and download the data from all of the site numbers in our USGS.site.nos data frame. You can also enter a single or a vector of site numbers into this function. The "parameterCd" argument requires you to know the "parameter code" for the variable(s) you want to download. "00060" is the parameter code for discharge (flow). You can look up parameter codes for other variables at https://help.waterdata.usgs.gov/codes-and-parameters/parameters
+colnames(BESdailyflow) <- c("agency_cd","site_no","Date","Q_cfs","qual_cd") # we can rename the columns of the newly downloaded data to suit us.
+BESdailyflow$Date <- ymd(BESdailyflow$Date)
+BESdailyflow$Q_Ls <- BESdailyflow$Q_cfs*28.3168 # the USGS mean daily flow in cubic feet per second (cfs), so let's add a new column that gives us liters per second
+
+```
+Use dplyr functions to find the mean daily flow over the time period you downloaded for each station. 
+Make a plot of flow over time for Gwynns Falls at Caroll Park (siteName = "GFCP")
+Use the mapper (follow the link in the comment above) to find the station number of a station near you. Download and plot the daily discharge at this station for the period from January 1, 2020 through April 30, 2020.
+
+For an example of downloading data into the R console using spatial data from the U.S. Census, check out: https://github.com/meganfork/WatershedPopulations/blob/master/BES_Population_per_watershed.Rmd
